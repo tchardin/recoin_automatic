@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>RECoin</title>
+  <script src="https://unpkg.com/vue"></script>
+  <script src="/web3/web3.js"></script>
+  <script src="/socket/socket.io.js"></script>
+  <link rel=stylesheet href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.4.0/css/bulma.min.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+  <style type="text/css">
+    .trips {
+      padding-top: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="user" v-if="user">
+      <section class="hero is-primary">
+        <div class="hero-body">
+          <div class="container has-text-centered">
+            <h1 class="title">Hello {{ user.first_name }}</h1>
+            <h2 class="subtitle">Address: {{ address }}</h2>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="container">
+          <div class="card dashboard" v-if="mining">
+            <header class="card-header">
+              <p class="card-header-title">
+                Vehicle: {{ vehicle }}
+              </p>
+            </header>
+            <div class="card-content">
+              <p class="title">
+                {{ balance }}
+              </p>
+              <p class="subtitle">
+                RECOINS
+              </p>
+            </div>
+            <footer class="card-footer" v-if="onTrip">
+              <p class="card-footer-item">
+                <span>
+                  <a href="#">On Trip</a>
+                </span>
+              </p>
+            </footer>
+          </div>
+          <div class="form" v-else>
+            <div class="field">
+              <label class="label">Eth Address</label>
+              <p class="control">
+                <input class="input" type="text" v-model="address" placeholder="Input string">
+              </p>
+            </div>
+            <div class="field">
+              <label class="label">Your Vehicle</label>
+              <p class="control">
+                <span class="select">
+                  <select v-model="vehicle">
+                    <option>{{ vehicle }}</option>
+                    <option>Nissan Leaf S</option>
+                    <option>Chevrolet Bolt EV</option>
+                    <option>Tesla Model 3</option>
+                  </select>
+                </span>
+              </p>
+            </div>
+            <div class="field">
+              <p class="control">
+                <label class="checkbox">
+                  <input type="checkbox">
+                  I agree to the <a href="#">terms and conditions</a>
+                </label>
+              </p>
+            </div>
+            <div class="field">
+              <p class="control">
+                <button class="button is-primary" v-on:click="getVehicle(token)">Start mining</button>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="section trips" v-if="trips">
+        <div class="container has-text-centered">
+          <div class="box">
+            <div class="content">
+              <p class="heading"><strong>Past trips</strong></p>
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Distance</th>
+                    <th>Recoins</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="trip in trips">
+                    <td>{{ new Date(trip.ended_at).toString().slice(4, 10) }}</th>
+                    <td><strong>{{ Number(Math.round(trip.distance_m/1609.344+'e'+2)+'e-'+2) }} mi.</strong></th>
+                    <td>{{ Number(Math.round((trip.distance_m/1609.344)/10+'e'+2)+'e-'+2) }}</th>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <section class="hero is-primary is-fullheight" v-else>
+      <div class="hero-head">
+        <header class="nav">
+          <div class="container">
+            <div class="nav-left">
+              <div class="nav-item">
+                <span class="icon">
+                  <i class="fa fa-car"></i>
+                </span>
+              </div>
+            </div>
+          </div>
+        </header>
+        </div>
+        <div class="hero-body">
+          <div class="container has-text-centered">
+            <h1 class="title">RECOIN</h1>
+          </div>
+        </div>
+        <div class="hero-foot">
+          <div class="nav">
+            <div class="container">
+              <div class="nav-center">
+                <a class="button is-success is-inverted" v-on:click="getUser(token)">
+                  Sign In
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+    </section>
+    <footer class="footer">
+      <div class="container">
+        <div class="content has-text-centered">
+          <p>
+            <strong>RECOIN</strong>
+          </p>
+          <p>
+            <a class="icon" href="https://github.com/tchardin/recoin_automatic">
+              <i class="fa fa-github"></i>
+            </a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+  <script type="text/javascript">
+
+  var ABI = [{
+    constant: false,
+    inputs: [{
+        name: "receiver",
+        type: "address"
+    }, {
+        name: "amount",
+        type: "uint256"
+    }],
+    name: "sendCoin",
+    outputs: [{
+        name: "sufficient",
+        type: "bool"
+    }],
+    type: "function"
+}, {
+    constant: true,
+    inputs: [{
+        name: "",
+        type: "address"
+    }],
+    name: "coinBalanceOf",
+    outputs: [{
+        name: "",
+        type: "uint256"
+    }],
+    type: "function"
+}, {
+    inputs: [{
+        name: "supply",
+        type: "uint256"
+    }],
+    type: "constructor"
+}, {
+    anonymous: false,
+    inputs: [{
+        indexed: false,
+        name: "sender",
+        type: "address"
+    }, {
+        indexed: false,
+        name: "receiver",
+        type: "address"
+    }, {
+        indexed: false,
+        name: "amount",
+        type: "uint256"
+    }],
+    name: "CoinTransfer",
+    type: "event"
+}]
+
+  web3 = new Web3(new Web3.providers.HttpProvider('https://ropsten.infura.io/2WcFZ3r628VLaGM7nXTg '))
+
+  var recoinAddress = '0xD3FD5BCEa83d02a0Ebe7727759A8117997944cFb'
+  var fromAccount = '0x11e99A9A2ebE4AFfdB7209A723432f21CcC63398'
+
+  var MyContract = web3.eth.contract(ABI)
+  var recoinContract = MyContract.at([recoinAddress])
+
+  const socket = io('https://stream.automatic.com?token=6455aabd6e7dc08a2e67:791f418813cf7ec9db3b01e1e828eabe958c0be6')
+
+  var app = new Vue({
+    el: '#app',
+    data: {
+      token: 'TOKEN',
+      user: null,
+      address: "",
+      vehicle: "Select Model",
+      mining: false,
+      balance: 0,
+      trips: null,
+      onTrip: false
+    },
+    methods: {
+      getUser: function(token) {
+        fetch('https://api.automatic.com/user/me', {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Bearer ' + token
+          }
+        }).then(data => data.json())
+        .then(json => this.user = json)
+      },
+      getVehicle: function(token) {
+        this.mining = true
+
+        this.balance = web3.eth.getBalance(this.address).toString(10)
+        // this.balance = recoinContract.coinBalanceOf(this.address)
+        fetch('https://api.automatic.com/trip', {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Bearer ' + token
+          }
+        }).then(data => data.json())
+        .then(json => this.trips = json.results)
+      }
+    },
+    mounted() {
+        var vm = this
+        vm.blockNumber = web3.eth.blockNumber
+
+        socket.on('ignition:on', function() {
+          vm.onTrip = true
+        })
+        socket.on('trip:finished', function(eventJSON){
+          vm.onTrip = false
+          var trip = eventJSON.trip.distance_m/1609.344
+          console.log(trip)
+          // recoinContract.sendCoin.sendTransaction(this.address, trip, {from: fromAccount})
+        })
+      }
+  })
+  </script>
+</body>
+</html>
